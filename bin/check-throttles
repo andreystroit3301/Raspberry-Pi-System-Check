@@ -1,0 +1,93 @@
+#!/bin/bash
+
+
+
+# This is a simple bash script that checks the throttle status of the
+# system with 'vcgencmd get_throttled'. Typically the result of this
+# command is a hexadecimal number in which 8 bits of the number 
+# represent different throttle status reasons. Since it's difficult to
+# know which bit positions are flipped in a hexadecimal, and it's
+# difficult to remember what each bit position signifies, so this 
+# scripts parses that status value to make it human readable.
+# This will convert the hexadecimal to decimal before using bit masks
+# to see which bits are flipped, and then it will output what the
+# currently flipped bits signify.
+
+
+
+# get raw throttle status hexadecimal
+status_hex=$(vcgencmd get_throttled | cut -d '=' -f 2)
+
+# convert hex to dec
+status_dec=$((status_hex))
+
+
+if((status_dec != 0)); then
+    echo "Throttled!"
+    echo "Status Hex: ${status_hex}"
+    echo -e "Decimal value: ${status_dec}\n"
+
+    # Bit masks to identify what is being throttled and how
+    local UNDERVOLT_NOW=1 # bit 0 - (undervoltage currently detected)
+    local LIMIT_CLOCK_NOW=2 # bit 1 - (ARM clock frequency currently limited)
+    local SOC_THROTTLE_NOW=4 # bit 2 - (CPU usage currently being throttled)
+    local TEMP_LIMIT_ACTIVE=8 # bit 3 - (At or above the soft temp limit of 80C)
+
+    # These bit masks are triggered if there is a history 
+    # of throttling even if it's currently not throttling.
+    local UNDERVOLT_HISTORY=65536 # bit 16 - (There is a history of detected undervoltage)
+    local CLOCK_LIMIT_HISTORY=131072 # bit 17 - (There is history of the ARM frequency being limited)
+    local SOC_THROTTLE_HISTORY=262144 # bit 18 - (There is a history of SOC being throttled)
+    local TEMP_LIMIT_HISTORY=524288 # bit 19 - (There is a history of the soft temp limit being reached)
+
+
+    local triggered_status=0
+    echo -e "\n>> Current Throttle Status:"
+    if(( (status_dec & UNDERVOLT_NOW) != 0)); then
+        echo "  !!!- Current Under-Voltage Detected!"
+        triggered_status=1
+    fi
+    if(( (status_dec & LIMIT_CLOCK_NOW) != 0)); then
+        echo "  !!!- ARM Clock Frequency is Currently Limited!"
+        triggered_status=1
+    fi
+    if(( (status_dec & SOC_THROTTLE_NOW) != 0)); then
+        echo "  !!!- Currently Throttling SOC!"
+        triggered_status=1
+    fi
+    if(( (status_dec & TEMP_LIMIT_ACTIVE) != 0)); then
+        echo "  !!!- Currently Surpassing Soft Temperature Limit!"
+        triggered_status=1
+    fi
+    if((triggered_status == 0)); then
+        echo "  No Current Throttle Status Detected."
+    fi
+
+
+    local triggered_history=0
+    echo -e "\n\n>> Throttle Status History Since Boot:"
+    if(( (status_dec & UNDERVOLT_HISTORY) != 0)); then
+        echo "  !- History of Under-Voltage Detected!"
+        triggered_history=1
+    fi
+    if(( (status_dec & CLOCK_LIMIT_HISTORY) != 0)); then
+        echo "  !- History of ARM Clock Frequency Being Limited!"
+        triggered_history=1
+    fi
+    if(( (status_dec & SOC_THROTTLE_HISTORY) != 0)); then
+        echo "  !- History of SOC Throttling Detected!"
+        triggered_history=1
+    fi
+    if(( (status_dec & TEMP_LIMIT_HISTORY) != 0)); then
+        echo "  !- History of Exceeding Soft Temperature Limit!"
+        triggered_history=1
+    fi
+    if((triggered_history == 0)); then
+        echo "  No History of Any Throttle Status Detected."
+    fi
+else
+    echo "Not Throttled"
+fi
+
+
+# eof
