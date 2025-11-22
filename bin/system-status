@@ -1,0 +1,82 @@
+#!/bin/bash
+
+
+# This is a basic script that will display the current status
+# of the raspberry pi system/hardware as a list. This list will
+# mainly show all the temperature values that are able to be read,
+# but it will also show things like SOC voltage and current. The
+# script may also print additional non-standard info such as
+# nvme ssd temperatures if additional packages are installed
+# and the given device is available.
+
+# if the integer 1 is given as an argument to this script then
+# it will skip the first 2 lines which is the label and timestamp.
+
+handle_sigint() {
+    echo -e "\nAborting Script."
+    exit 1
+}
+trap 'handle_sigint' SIGINT
+
+
+
+CPU_CLOCK=$(vcgencmd measure_clock arm | awk -F'=' '{print $2}')
+GPU_CLOCK=$(vcgencmd measure_clock core | awk -F'=' '{print $2}')
+if ! [ $1 -eq 1 ] &> /dev/null; then
+    echo -e "==== System Status ====\r"
+    echo -e "Timestamp: $(date)\r"
+fi
+echo -e "Throttle status: $(check-throttles)\r"
+echo -e "SOC Temp: $(vcgencmd measure_temp | awk -F'=' '{print $2}' | sed "s/'/°/g")\r"
+echo -e "PMIC Temp: $(vcgencmd measure_temp pmic | awk -F'=' '{print $2}' | sed "s/'/°/g")\r"
+echo -e "CPU Clock: $((CPU_CLOCK / 1000000)) mHz\r"
+echo -e "GPU Clock: $((GPU_CLOCK / 1000000)) mHz\r"
+echo -e "CPU Voltage: $(vcgencmd pmic_read_adc VDD_CORE_V | awk -F'=' '{print $2}')\r"
+echo -e "CPU Current: $(vcgencmd pmic_read_adc VDD_CORE_A | awk -F'=' '{print $2}')\r"
+echo -e "GPU Voltage: $(vcgencmd measure_volts core | awk -F'=' '{print $2}')\r"
+echo -e "Supply voltage: $(vcgencmd pmic_read_adc EXT5V_V | awk -F'=' '{print $2}')\r"
+
+# checks for lm-sensors and if installed will also output
+# the temperature of the RP1 southbridge chip
+if command -v sensors &> /dev/null; then
+    echo -e "RP1 southbridge Temp: $(sensors rp1_adc-isa-c8000 | grep "temp1" | awk -F'+' '{print $2}')\r"
+fi
+
+
+# Checking for any nvme storage devices to get temps
+# from the smart log if available. For this part to
+# work you need to have nvme-cli installed. Since
+# nvme devices can have 1-3 temperature sensors it 
+# will check which ones are available and print their
+# reported temps. If it can't find any temperature
+# sensor fields in the smart log then it will print
+# the regular temperature field instead. This will
+# not give any output if nvme-cli is not installed.
+if command -v nvme &> /dev/null; then
+    nvme_devices=$(sudo nvme list | awk '/^\/dev\/nvme/{print $1}')
+    ssd_id=0
+    for nvme_device in $nvme_devices; do
+        temp1=$(sudo nvme smart-log "$nvme_device" | grep -i '^temperature sensor 1' | awk '{print $5}')
+        temp2=$(sudo nvme smart-log "$nvme_device" | grep -i '^temperature sensor 2' | awk '{print $5}')
+        temp3=$(sudo nvme smart-log "$nvme_device" | grep -i '^temperature sensor 3' | awk '{print $5}')
+        if [[ -z "$temp1" && -z "$temp2" && -z "$temp3" ]]; then
+            # This just gets the main temp field if no
+            # temp sensor fields are available
+            total_temp=$(sudo nvme smart-log "$nvme_device" | grep -i '^temperature' | awk '{print $3}')
+            echo -e "SSD$ssd_id $nvme_device SSD Temp: $total_temp°C\r"
+        else
+            if [ -n "$temp1" ]; then
+                echo -e "SSD$ssd_id $nvme_device Temp1: $temp1°C\r"
+            fi
+            if [ -n "$temp2" ]; then
+                echo -e "SSD$ssd_id $nvme_device Temp2: $temp2°C\r"
+            fi
+            if [ -n "$temp3" ]; then
+                echo -e "SSD$ssd_id $nvme_device Temp3: $temp3°C\r"
+            fi
+        fi
+        ((++ssd_id))
+    done
+fi
+
+# eof
