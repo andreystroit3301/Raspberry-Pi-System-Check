@@ -1,2 +1,6 @@
-# Raspberry-Pi-System-Check
-This is a repository of some simple bash scripts I made for the Raspberry Pi 5. These scripts are for basic system checks to view stats like cpu, gpu, and pmic temperature. There are also a few optional checks it will make if possible. This may work on other Raspberry Pi models, but I cannot guarantee that since I only have a Pi 5.
+# System Check Script For Raspberry Pi 5
+In this repository there are 2 basic bash scripts for checking the status of your raspberry pi system.
+
+These scripts just make it easier to check things like temperatures, voltages, and throttle status.
+
+I made these scripts for my Raspberry Pi 5, so I'm not sure if these scripts will work correctly on other raspberry pi models.
