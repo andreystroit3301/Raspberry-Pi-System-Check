@@ -1,0 +1,39 @@
+#!/bin/bash
+
+
+# this is a script from google that checks for rtc battery.
+# just copying this for now. Will need to go over this later.
+
+# path to rtc battery voltage may vary
+RTC_BATTERY_VOLTAGE_PATH="/sys/devices/platform/soc@107c000000/soc@107c000000:rpi_rtc/rtc/rtc0/battery_voltage"
+RTC_CHARGE_VOLTAGE_PATH="/sys/devices/platform/soc@107c000000/soc@107c000000:rpi_rtc/rtc/rtc0/charging_voltage"
+
+if [ -f "$RTC_BATTERY_VOLTAGE_PATH" ]; then
+    SCALE=1000000
+    BATTERY_VOLTAGE_RAW=$(cat "$RTC_BATTERY_VOLTAGE_PATH")
+    BATTERY_VOLTAGE=$(awk "BEGIN {print $BATTERY_VOLTAGE_RAW / $SCALE}")
+    MIN_VOLTAGE_T=2.5 # min Vin for RTC module on Raspberry Pi 5
+    # with no battery connected $BATTERY_VOLTAGE should be 0.
+    # The voltage at which an coin cell battery is considered dead is about 2.5-2.8v.
+    if (( $(echo "$BATTERY_VOLTAGE >= $MIN_VOLTAGE_T" | bc -l) )); then
+        echo "RTC Battery is connected. Current voltage: $BATTERY_VOLTAGE V"
+        # check if RTC trickle charging is enabled:
+        if [ -f "$RTC_CHARGE_VOLTAGE_PATH" ]; then
+            CHARGE_VOLTAGE_RAW=$(cat "$RTC_CHARGE_VOLTAGE_PATH")
+            CHARGE_VOLTAGE=$(awk "BEGIN {print $CHARGE_VOLTAGE_RAW / $SCALE}")
+            MIN_VCHG_T=1.3
+            if (( $(echo "$CHARGE_VOLTAGE >= $MIN_VCHG_T" | bc -l) )); then
+                echo "RTC trickle charging enabled. Charging voltage: $CHARGE_VOLTAGE V"
+            else
+                echo "RTC trickle charging disabled. Charging voltage: $CHARGE_VOLTAGE V"
+            fi
+        fi
+    else
+        echo "RTC Battery is dead or not connected. Read voltage: $BATTERY_VOLTAGE V"
+    fi
+else
+    echo "RTC Battery information could not be found at given path $RTC_BATTERY_VOLTAGE_PATH."
+    echo "If a known good RTC battery is connected then there might be an issue with the RTC driver."
+fi
+
+# eof
