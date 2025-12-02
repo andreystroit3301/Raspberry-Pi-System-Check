@@ -13,7 +13,7 @@
 # it will skip the first 2 lines which is the label and timestamp.
 
 handle_sigint() {
-    echo -e "\nAborting Script."
+    echo -e "\nAborting Script..."
     exit 1
 }
 trap 'handle_sigint' SIGINT
@@ -35,6 +35,43 @@ echo -e "CPU Voltage: $(vcgencmd pmic_read_adc VDD_CORE_V | awk -F'=' '{print $2
 echo -e "CPU Current: $(vcgencmd pmic_read_adc VDD_CORE_A | awk -F'=' '{print $2}')\r"
 echo -e "GPU Voltage: $(vcgencmd measure_volts core | awk -F'=' '{print $2}')\r"
 echo -e "Supply voltage: $(vcgencmd pmic_read_adc EXT5V_V | awk -F'=' '{print $2}')\r"
+
+# This section checks the RTC battery voltage if available.
+# It will also check if the RTC trickle charging is enabled.
+# This does the same thing as the rtc-check script, but the
+# printed output is much more concise. Unlike the check-throttles
+# script I just recreated the rtc-check script in this script
+# to make it less verbose. (might move this section to the bottom)
+RTC_BATT_V_PATH="/sys/devices/platform/soc@107c000000/soc@107c000000:rpi_rtc/rtc/rtc0/battery_voltage"
+RTC_CHG_V_PATH="/sys/devices/platform/soc@107c000000/soc@107c000000:rpi_rtc/rtc/rtc0/charging_voltage"
+
+if [ -f "$RTC_BATT_V_PATH" ]; then
+    SCALE=1000000
+    BAT_V_RAW=$(cat "$RTC_BATT_V_PATH")
+    BAT_V=$(awk "BEGIN {print $BAT_V_RAW / $SCALE}")
+    MIN_BAT_V=2.5 # min Vin for RTC module on Raspberry Pi 5
+    # with no battery connected $BATTERY_VOLTAGE should be 0.
+    # The voltage at which an coin cell battery is considered dead is about 2.6-2.8v.
+    if (( $(echo "$BAT_V >= $MIN_BAT_V" | bc -l) )); then
+        echo "RTC Battery present. Voltage: $BAT_V V"
+        # check if RTC trickle charging is enabled:
+        if [ -f "$RTC_CHG_V_PATH" ]; then
+            CHG_V_RAW=$(cat "$RTC_CHG_V_PATH")
+            CHG_V=$(awk "BEGIN {print $CHG_V_RAW / $SCALE}")
+            MIN_CHG_V=1.3 # min charge voltage set by the system
+            if (( $(echo "$CHG_V >= $MIN_CHG_V" | bc -l) )); then
+                echo "RTC trickle charging enabled. Charging voltage: $CHG_V V"
+            else
+                echo "RTC trickle charging disabled. Charging voltage: $CHG_V V"
+            fi
+        fi
+    else
+        echo "RTC Battery is dead or not present. Voltage: $BAT_V V"
+    fi
+else
+    echo "RTC system path could not be found at given path $RTC_BATT_V_PATH."
+    echo "(this may indicate an issue with the RTC or RTC driver."
+fi
 
 # checks for lm-sensors and if installed will also output
 # the temperature of the RP1 southbridge chip
