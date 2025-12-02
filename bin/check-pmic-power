@@ -1,0 +1,62 @@
+#!/bin/bash
+
+
+# This is a simple script which just retrieves all of the
+# voltage and current values available from the PMIC to get
+# a rough estimate for power consumption. This doesn't seem
+# to include and power drawn from USB. This script also 
+# ignores the EXT5V_V and BATT_V since there is no corresponding
+# current value for them.
+
+# This will typically give only a very low value as the available
+# values from the PMIC ADC are only for the CPU core and other logic
+# circuits which use low voltage and current.
+
+# Also keep in mind that some of the current flows will switch on and
+# off, so the read power can fluctuate alot based on wether these circuits
+# are active or not.
+
+handle_sigint() {
+    echo -e "\nAborting Script..."
+    exit 1
+}
+trap 'handle_sigint' SIGINT
+
+
+PMIC_A=$(vcgencmd pmic_read_adc 0 1 2 3 4 5 6 7 17 18 16 22)
+PMIC_V=$(vcgencmd pmic_read_adc 8 9 10 11 12 13 14 15 20 21 19 23)
+
+A_ARRAY[0]=$(echo "$PMIC_A" | grep "(0)" | awk -F'=' '{print $2}')
+A_ARRAY[1]=$(echo "$PMIC_A" | grep "(1)" | awk -F'=' '{print $2}')
+A_ARRAY[2]=$(echo "$PMIC_A" | grep "(2)" | awk -F'=' '{print $2}')
+A_ARRAY[3]=$(echo "$PMIC_A" | grep "(3)" | awk -F'=' '{print $2}')
+A_ARRAY[4]=$(echo "$PMIC_A" | grep "(4)" | awk -F'=' '{print $2}')
+A_ARRAY[5]=$(echo "$PMIC_A" | grep "(5)" | awk -F'=' '{print $2}')
+A_ARRAY[6]=$(echo "$PMIC_A" | grep "(6)" | awk -F'=' '{print $2}')
+A_ARRAY[7]=$(echo "$PMIC_A" | grep "(7)" | awk -F'=' '{print $2}')
+A_ARRAY[8]=$(echo "$PMIC_A" | grep "(17)" | awk -F'=' '{print $2}')
+A_ARRAY[9]=$(echo "$PMIC_A" | grep "(18)" | awk -F'=' '{print $2}')
+A_ARRAY[10]=$(echo "$PMIC_A" | grep "(16)" | awk -F'=' '{print $2}')
+A_ARRAY[11]=$(echo "$PMIC_A" | grep "(22)" | awk -F'=' '{print $2}')
+
+V_ARRAY[0]=$(echo "$PMIC_V" | grep "(8)" | awk -F'=' '{print $2}')
+V_ARRAY[1]=$(echo "$PMIC_V" | grep "(9)" | awk -F'=' '{print $2}')
+V_ARRAY[2]=$(echo "$PMIC_V" | grep "(10)" | awk -F'=' '{print $2}')
+V_ARRAY[3]=$(echo "$PMIC_V" | grep "(11)" | awk -F'=' '{print $2}')
+V_ARRAY[4]=$(echo "$PMIC_V" | grep "(12)" | awk -F'=' '{print $2}')
+V_ARRAY[5]=$(echo "$PMIC_V" | grep "(13)" | awk -F'=' '{print $2}')
+V_ARRAY[6]=$(echo "$PMIC_V" | grep "(14)" | awk -F'=' '{print $2}')
+V_ARRAY[7]=$(echo "$PMIC_V" | grep "(15)" | awk -F'=' '{print $2}')
+V_ARRAY[8]=$(echo "$PMIC_V" | grep "(20)" | awk -F'=' '{print $2}')
+V_ARRAY[9]=$(echo "$PMIC_V" | grep "(21)" | awk -F'=' '{print $2}')
+V_ARRAY[10]=$(echo "$PMIC_V" | grep "(19)" | awk -F'=' '{print $2}')
+V_ARRAY[11]=$(echo "$PMIC_V" | grep "(23)" | awk -F'=' '{print $2}')
+
+POW_SUM=0.0
+for i in {0..11}; do
+    POW_SUM=$(echo "$POW_SUM + (${V_ARRAY[i]} * ${A_ARRAY[i]})" | bc -l)
+done
+
+echo "Read PMIC Power: $POW_SUM W"
+
+# eof
