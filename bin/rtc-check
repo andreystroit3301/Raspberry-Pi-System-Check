@@ -4,6 +4,12 @@
 # this is a script from google that checks for rtc battery.
 # just copying this for now. Will need to go over this later.
 
+handle_sigint() {
+    echo -e "\nAborting Script..."
+    exit 1
+}
+trap 'handle_sigint' SIGINT
+
 # path to rtc battery voltage may vary
 RTC_BATTERY_VOLTAGE_PATH="/sys/devices/platform/soc@107c000000/soc@107c000000:rpi_rtc/rtc/rtc0/battery_voltage"
 RTC_CHARGE_VOLTAGE_PATH="/sys/devices/platform/soc@107c000000/soc@107c000000:rpi_rtc/rtc/rtc0/charging_voltage"
