@@ -29,6 +29,16 @@ fi
 echo -e "Throttle status: $(check-throttles)\r"
 echo -e "SOC Temp: $(vcgencmd measure_temp | awk -F'=' '{print $2}' | sed "s/'/°/g")\r"
 echo -e "PMIC Temp: $(vcgencmd measure_temp pmic | awk -F'=' '{print $2}' | sed "s/'/°/g")\r"
+
+# Getting GPU and CPU usage if sysload is present/installed
+if command -v sysload &> /dev/null; then
+    while IFS= read -r sys_line; do
+        break
+    done < <(sysload)
+    echo -e "CPU Usage: $(echo -e "$sys_line" | awk '{print $1}')%\r"
+    echo -e "GPU Usage: $(echo -e "$sys_line" | awk '{print $2}')%\r"
+fi
+
 echo -e "CPU Clock: $((CPU_CLOCK / 1000000)) mHz\r"
 echo -e "GPU Clock: $((GPU_CLOCK / 1000000)) mHz\r"
 echo -e "CPU Voltage: $(vcgencmd pmic_read_adc VDD_CORE_V | awk -F'=' '{print $2}')\r"
