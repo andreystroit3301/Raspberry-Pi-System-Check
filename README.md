@@ -6,8 +6,8 @@ These scripts just make it easier to check things like temperatures, voltages, a
 I made these scripts for my Raspberry Pi 5, so I'm not sure if these scripts will work correctly on other raspberry pi models.
 
 Parts of the system-status script use some packages that don't come with the raspberry pi OS. To get the full functionality of the script
-you should install lm-sensors and nvme-cli. The install-recommended.sh file is a simple bash script that can install these for you. The
-script will still run without these packages, but certain information will just not be printed.
+you should install lm-sensors, nvme-cli, and sysload. The install-recommended.sh file is a simple bash script that can install these for
+you. The main scripts like system-status will still run without these packages, but certain information will just not be printed.
 
 This repository is mainly for the system-status script, but there are also a few standalone scripts that do one specific check.
 Some of these scripts are used by the system-status script, but you can also use them on their own. The description for those 
@@ -26,15 +26,17 @@ chip, and any connected NVMe SSD, additional packages are required.
 By default this script will print "==== System Status ====" along with a timestamp at the beginning of the output. You can optionally disable this by just passing the integer 1 as an argument to the script such as ```system-status 1```.
 
 The script will start by printing the output from the check-throttles script in this repo. After printing that it will print the 2
-default available temperatures which is the CPU/SOC temperature and the PMIC temperature. After this it will print the ARM frequency
-for the CPU along with the clock frequency for the GPU. Next it will print the CPU voltage and current along with the GPU voltage(current not available).
-The script will also print the supply voltage which is just the external usb-c power supply voltage. After the supply voltage the script
-will then check the Raspberry Pi 5 RTC driver to see if an RTC battery is connected. If the battery is connected, and above the minimum
-2.5v required by the RTC(aka not dead), then it will output the current RTC battery voltage. If it passed the previous check it will then
-also check if the trickle charging feature is enabled, and if so it will then also print the current set trickle charge voltage. 
-(Also the RTC check uses a hard coded file path for the RTC battery info, so it may not work on some systems at the moment. I will 
-eventually change this. If the file path exists on your system, but the script still can't find the RTC info then that means there is
-an issue with your RTC driver.)
+default available temperatures which is the CPU/SOC temperature and the PMIC temperature. Then the script will check if sysload is
+installed, and if so it will print the current CPU then GPU usage as a percentage. After this it will print the ARM frequency
+for the CPU along with the clock frequency for the GPU. Next it will print the CPU voltage and current along with the GPU 
+voltage(current not available). The script will also print the supply voltage which is just the external usb-c power supply voltage. 
+After the supply voltage the script will then check the Raspberry Pi 5 RTC driver to see if an RTC battery is connected. If the battery 
+is connected, and above the minimum 2.5v required by the RTC(aka not dead), then it will output the current RTC battery voltage. If it 
+passed the previous check it will then also check if the trickle charging feature is enabled, and if so it will then also print the 
+current set trickle charge voltage. 
+(Also the RTC check uses a hard coded file path for the RTC battery info, so it may not work on 
+some systems at the moment. I will eventually change this. If the file path exists on your system, but the script still can't find the 
+RTC info then that means there is an issue with your RTC driver.)
 
 After the script will try to print temperature of the RP1 southbridge chip on the Raspberry Pi 5. The script uses the lm-sensors package
 to read the RP1 temperature and print it. The temperature I beleive will always be in celcius.
@@ -54,7 +56,15 @@ in that bin folder you can just run without having to type the whole file path. 
 folder you would have to type ```./system-status``` into terminal to run the script, but when in the /home/usr/bin folder you can just type
 ```system-status``` into terminal and it will work. There is also the /bin folder in the root directory, but it is not recomended to put 
 it there. To get full functionality of the script you can also run the install-recommended.sh script which is included in this repo.
-You can also manually install the required packages with ```sudo apt install lm-sensors``` and ```sudo apt install nvme-cli```.
+You can also manually install the required packages with ```sudo apt install lm-sensors``` and ```sudo apt install nvme-cli```. Next is
+sysload which is an additional utility pulled from github.
+To install sysload Run:
+```
+sudo apt install build-essential git meson
+git clone https://github.com/hotnuma/sysload.git
+cd sysload
+./install.sh
+```
 
 
 At the top of the script's output it will show
@@ -67,22 +77,24 @@ which you can disable by just typing 1 as the script parameter like so: ```syste
 Example output of the system-status script:
 ```
 ==== System Status ====
-Timestamp: Mon  1 Dec 20:45:33 CST 2025
+Timestamp: Sat  3 Jan 18:29:15 CST 2026
 Throttle status: Not Throttled
-SOC Temp: 48.8°C
-PMIC Temp: 45.3°C
-CPU Clock: 1500 mHz
-GPU Clock: 500 mHz
-CPU Voltage: 0.89181840V
-CPU Current: 0.75012000A
-GPU Voltage: 0.8864V
-Supply voltage: 5.11880000V
-RTC Battery present. Voltage: 3.26068 V
+SOC Temp: 48.3°C
+PMIC Temp: 45.6°C
+CPU Usage: 3.27%
+GPU Usage: 0.27%
+CPU Clock: 2400 mHz
+GPU Clock: 910 mHz
+CPU Voltage: 0.83003580V
+CPU Current: 0.91979000A
+GPU Voltage: 0.8273V
+Supply voltage: 5.12550000V
+RTC Battery present. Voltage: 3.27521 V
 RTC trickle charging enabled. Charging voltage: 3.3 V
-RP1 southbridge Temp: 56.6°C  
+RP1 southbridge Temp: 49.1°C  
 SSD0 /dev/nvme0n1 Temp1: 29°C
-SSD0 /dev/nvme0n1 Temp2: 38°C
-SSD1 /dev/nvme1n1 Temp1: 32°C
+SSD0 /dev/nvme0n1 Temp2: 37°C
+SSD1 /dev/nvme1n1 Temp1: 31°C
 SSD1 /dev/nvme1n1 Temp2: 40°C
 ```
 
@@ -90,19 +102,21 @@ Example output when using ```system-status 1```:
 ```
 Throttle status: Not Throttled
 SOC Temp: 48.8°C
-PMIC Temp: 46.2°C
-CPU Clock: 2400 mHz
-GPU Clock: 910 mHz
-CPU Voltage: 0.89181840V
-CPU Current: 0.83942000A
-GPU Voltage: 0.8864V
-Supply voltage: 5.07056000V
-RTC Battery present. Voltage: 3.26153 V
+PMIC Temp: 44.5°C
+CPU Usage: 5.46%
+GPU Usage: 0.18%
+CPU Clock: 1500 mHz
+GPU Clock: 500 mHz
+CPU Voltage: 0.74998700V
+CPU Current: 0.82156000A
+GPU Voltage: 0.8273V
+Supply voltage: 5.12416000V
+RTC Battery present. Voltage: 3.27435 V
 RTC trickle charging enabled. Charging voltage: 3.3 V
-RP1 southbridge Temp: 57.2°C  
+RP1 southbridge Temp: 49.1°C  
 SSD0 /dev/nvme0n1 Temp1: 29°C
-SSD0 /dev/nvme0n1 Temp2: 38°C
-SSD1 /dev/nvme1n1 Temp1: 32°C
+SSD0 /dev/nvme0n1 Temp2: 37°C
+SSD1 /dev/nvme1n1 Temp1: 31°C
 SSD1 /dev/nvme1n1 Temp2: 40°C
 ```
 
