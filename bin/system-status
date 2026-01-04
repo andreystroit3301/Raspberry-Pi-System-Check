@@ -35,8 +35,8 @@ if command -v sysload &> /dev/null; then
     while IFS= read -r sys_line; do
         break
     done < <(sysload)
-    echo -e "CPU Usage: $(echo -e "$sys_line" | awk '{print $1}')%\r"
-    echo -e "GPU Usage: $(echo -e "$sys_line" | awk '{print $2}')%\r"
+    echo -e "CPU Usage: $(echo $sys_line | awk '{print $1}')%\r"
+    echo -e "GPU Usage: $(echo $sys_line | awk '{print $2}')%\r"
 fi
 
 echo -e "CPU Clock: $((CPU_CLOCK / 1000000)) mHz\r"
